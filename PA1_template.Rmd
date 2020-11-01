@@ -7,19 +7,139 @@ output:
 
 
 ## Loading and preprocessing the data
+```{r, echo=TRUE}
+data <- read.csv("activity.csv", na.string = TRUE)
+```
 
 
 
 ## What is mean total number of steps taken per day?
+```{r, echo=TRUE}
+library(dplyr)
+library(ggplot2)
+library(data.table)
+
+data <- read.csv("activity.csv")
+good <- complete.cases(data) #Removing NAs
+data <- data[good, ]
+data$steps <- as.integer(data$steps)
+data <- subset(data, steps > 0)
+
+data$date <- as.Date(as.character(data$date), format = "%Y-%m-%d")
+sum_steps <- data %>%
+        group_by(date) %>%
+        summarise_at(vars("steps"), sum)
+ggplot(data = sum_steps, aes(x = date, y = steps)) + geom_bar(stat = "identity")
+
+mean_steps <- data %>%
+        group_by(date) %>%
+        summarise_at(vars("steps"), mean)
+
+median_steps <- data %>%
+        group_by(date) %>%
+        summarise_at(vars("steps"), median)
+
+colnames(mean_steps) <- c("Date", "Mean.Steps")
+colnames(median_steps) <- c("Date", "Median.Steps")
+merge(mean_steps, median_steps)
+```
 
 
 
 ## What is the average daily activity pattern?
+```{r, echo=TRUE}
+library(dplyr)
+library(ggplot2)
+library(data.table)
+
+data <- read.csv("activity.csv")
+good <- complete.cases(data) #Removing NAs
+data <- data[good, ]
+data$steps <- as.integer(data$steps)
+data <- subset(data, steps > 0)
+
+mean_steps <- data %>%
+        group_by(interval) %>%
+        summarise_at(vars("steps"), mean)
+
+g <- ggplot(data = mean_steps, aes(x = interval, y = steps)) + 
+  geom_line( color = "blue") + 
+  geom_point(color = "black")
+g + labs(title = "Average Daily Activity Pattern", 
+         x = "5-minute Interval", 
+         y = "Average Number of Steps Taken") +
+  theme(plot.title = element_text(hjust = 0.5))
+ 
+max_mean <- as.character(max(mean_steps$steps))
+max <- as.list(mean_steps[grepl(max_mean, mean_steps$steps), ])
+max_mean <- max$steps
+max_interval <- max$interval
+```
 
 
+The 5-minute interval which contains the maximum number of steps on average 
+across all the days in the dataset is on the 835-minute mark with a value of 352.4839
 
 ## Imputing missing values
+```{r, echo=TRUE}
+library(dplyr)
+data <- read.csv("activity.csv")
+na_values <- sum(is.na(data$steps))
 
+data$date <- as.Date(as.character(data$date), format = "%Y-%m-%d")
+mean_steps <- data %>%
+        group_by(date) %>%
+        summarise_at(vars("steps"), mean)
+
+data[is.na(data)] <- mean(data$steps, na.rm = TRUE)
+
+ggplot(data = data, aes(x = date, y = steps)) + geom_bar(stat = "identity")
+
+mean_steps <- data %>%
+        group_by(date) %>%
+        summarise_at(vars("steps"), mean)
+
+median_steps <- data %>%
+        group_by(date) %>%
+        summarise_at(vars("steps"), median)
+
+colnames(mean_steps) <- c("Date", "Mean.Steps")
+colnames(median_steps) <- c("Date", "Median.Steps")
+merge(mean_steps, median_steps)
+```
+
+The values when imputing the missing values had a drastic change and overall the 
+mean and the median of the steps decreased compare when the missing values are not included in the computation
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo=TRUE}
+data <- read.csv("activity.csv")
+data$day <- weekdays(as.Date(as.character(data$date), format = "%Y-%m-%d"))
+#data$date <- factor(data$date, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+data[is.na(data)] <- 0
+good <- complete.cases(data) #Removing NAs
+data <- data[good, ]
+data$steps <- as.integer(data$steps)
+data <- subset(data, steps > 0)
+
+data$wday <- ifelse(data$day == "Monday", "Weekday",
+                    ifelse(data$day == "Tuesday", "Weekday",
+                           ifelse(data$day == "Wednesday", "Weekday",
+                                  ifelse(data$day == "Thursday", "Weekday",
+                                         ifelse(data$day == "Friday", "Weekday",
+                                                ifelse(data$day == "Saturday", "Weekend",
+                                                       ifelse(data$day == "Sunday", "Weekend", 
+                                                              NA )))))))
+data$wday <- as.factor(data$wday)    
+
+mean_steps <- data %>%
+        group_by(interval, wday) %>%
+        summarise_at(vars("steps"), mean)
+
+
+ggplot(data = mean_steps, aes(x = interval, y = steps)) + 
+  geom_line(stat = "identity", color = "blue") + 
+  facet_grid(rows = vars(wday))
+```
+
